@@ -1,0 +1,27 @@
+body {
+    min-height: 100vh;
+    overflow: hidden;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#container {
+    display: block;
+}
+
+.picker {
+    padding: 20px;
+    margin: 5px;
+
+    background: #aaaaaa;
+    list-style: none;
+    float: left;
+    width: 20px;
+}
+
+.picker > li {
+    text-align: center; 
+    padding: 2px 0;
+}

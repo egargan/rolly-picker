@@ -1,27 +1,42 @@
 body {
     min-height: 100vh;
-    overflow: hidden;
-
+    margin: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-#container {
-    display: block;
+    overflow: hidden;
 }
 
 .picker {
-    padding: 20px;
+    width: 40px;
+    height: 40px;
+    display: inline-block;
+    padding: 100px 20px;
     margin: 5px;
+    overflow: scroll;
+}
 
-    background: #aaaaaa;
-    list-style: none;
-    float: left;
-    width: 20px;
+.picker::-webkit-scrollbar { 
+    display: none; 
 }
 
 .picker > li {
-    text-align: center; 
-    padding: 2px 0;
+    height: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2em;
 }
+
+.picker .window {
+    width: inherit;
+    height: inherit;
+    position: absolute;
+
+    /* 'border-box' includes border in total width and height */
+    box-sizing: border-box;
+    border-top-style: solid;
+    border-bottom-style: solid;
+    border-color: blue;
+}
+

@@ -8,16 +8,14 @@ body {
 }
 
 .picker {
-    width: 40px;
-    height: 40px;
     display: inline-block;
     padding: 100px 20px;
     margin: 5px;
     overflow: scroll;
 }
 
-.picker::-webkit-scrollbar { 
-    display: none; 
+.picker::-webkit-scrollbar {
+    display: none;
 }
 
 .picker > li {

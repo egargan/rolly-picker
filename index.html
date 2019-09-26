@@ -13,7 +13,12 @@
 </head>
 
 <body>
+    <button type="button" style="margin: 5px" onclick="(function() { addHead(); })();">Add Head</button>
+    <button type="button" style="margin: 5px" onclick="(function() { addTail(); })();">Add Tail</button>
+    <button type="button" style="margin: 5px" onclick="(function() { delHead(); })();">Del Head</button>
+    <button type="button" style="margin: 5px" onclick="(function() { delTail(); })();">Del Tail</button>
     <div id="container"></div>
+    <button type="button" style="margin: 5px" onclick="(function() { getSelCell(); })();">Get Selected Cell</button>
     <script src="script.js"></script>
 </body>
 </html>

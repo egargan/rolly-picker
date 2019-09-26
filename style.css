@@ -7,30 +7,30 @@ body {
     overflow: hidden;
 }
 
-.picker {
+.wheel {
     display: inline-block;
     margin: 5px;
     overflow: scroll;
 }
 
-.picker::-webkit-scrollbar {
+.wheel::-webkit-scrollbar {
     display: none;
 }
 
-.picker-segment {
+.chunk {
     /* Remove default styling for ul */
     padding: 0;
     margin: 0;
 }
 
-.picker-segment > li {
+.chunk > li {
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.2em;
 }
 
-.picker .window {
+.wheel .window {
     width: inherit;
     height: inherit;
     position: absolute;

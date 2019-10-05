@@ -1,5 +1,5 @@
 class PickerWheel {
-    constructor(chunkProvider) {
+    constructor(chunkProvider, container) {
         // Declare size of picker 'cells'
         this.cellSize = 40;
         // Define these here so we know when to lazy load head / tail chunks
@@ -33,20 +33,37 @@ class PickerWheel {
                 classRef.addTopChunk();
                 classRef.removeBottomChunk();
                 classRef.updateExtendBounds();
+                classRef.updateChunkBounds();
+            }
+            else if (classRef.isScrollAboveChunkBound()) {
+                console.log('up tick!');
+                classRef.updateChunkBounds();
+            }
+            else if (classRef.isScrollBelowChunkBound()) {
+                console.log('down tick!');
+                classRef.updateChunkBounds();
             }
             else if (classRef.isScrollBelowBottomBound()
                 && classRef.chunkProvider.hasNextBottomChunk()) {
                 classRef.addBottomChunk();
                 classRef.removeTopChunk();
                 classRef.updateExtendBounds();
+                classRef.updateChunkBounds();
             }
         };
 
         this.chunkProvider = chunkProvider;
         this.chunkElements = [];
 
+        container.appendChild(this.wheelElement);
+
         // Add initial chunk
         this.addBottomChunk();
+        this.addBottomChunk();
+        this.addTopChunk();
+
+        this.updateExtendBounds();
+        this.updateChunkBounds();
     }
 
     isScrollAboveTopBound() {
@@ -63,6 +80,28 @@ class PickerWheel {
 
         const wheelHeightLessPadding = this.wheelElement.scrollHeight - this.paddingVert * 2;
         this.extendBottomBound = wheelHeightLessPadding - this.paddingVert * 2;
+    }
+
+    isScrollAboveChunkBound() {
+        return this.wheelElement.scrollTop <= this.chunkTopBound;
+    }
+
+    isScrollBelowChunkBound() {
+        return this.wheelElement.scrollTop >= this.chunkBottomBound;
+    }
+
+    updateChunkBounds() {
+        const selectedCellTuple = this.getSelectedCell();
+        const selectedChunkIndex = selectedCellTuple[0];
+
+        var wheelHeightBeforeMiddleChunk = 0;
+
+        for (let i = 0; i < selectedChunkIndex; i++) {
+            wheelHeightBeforeMiddleChunk += this.chunkElements[i].scrollHeight;
+        }
+
+        this.chunkTopBound = wheelHeightBeforeMiddleChunk - this.cellSize;
+        this.chunkBottomBound = wheelHeightBeforeMiddleChunk + this.chunkElements[selectedChunkIndex].scrollHeight;
     }
 
     addTopChunk() {
@@ -103,16 +142,13 @@ class PickerWheel {
     removeTopChunk() {
         const topChunkToRemove = this.chunkElements.shift();
         this.wheelElement.removeChild(topChunkToRemove);
-
-        // TODO: notify chunkProvider
-        // ... do we need to worry about consistency between provider model and UI?
+        this.chunkProvider.releaseTopChunk();
     }
 
     removeBottomChunk() {
         const bottomChunkToRemove = this.chunkElements.pop();
         this.wheelElement.removeChild(bottomChunkToRemove);
-
-        // TODO: notify chunkProvider
+        this.chunkProvider.releaseBottomChunk();
     }
 
     createUlElement(listData) {
@@ -162,10 +198,6 @@ class PickerWheel {
         // Return tuple of [chunk number, index]
         return [i, selectedCellIndexInChunk];
     }
-
-    getElement() {
-        return this.wheelElement;
-    }
 }
 
 class MonthChunkProvider {
@@ -197,10 +229,18 @@ class MonthChunkProvider {
             return null;
         }
 
-        // TODO index mutations quite side-effecty here, probs better to make separate method
+        // TODO index mutations quite side-effecty here, probs better to make separate method?
+        // 'claimNextChunk' vs 'getChunk'?
         this.liveChunksEndIndex++;
         const nextBottomChunk = this.monthChunks[this.liveChunksEndIndex];
         return nextBottomChunk[1];
+    }
+
+    releaseBottomChunk() {
+        // TODO: this interface feels a bit too manual
+        // but it's sort of required bc we need to maintain consistency between
+        // the chunk provider and the wheel chunks..
+        this.liveChunksEndIndex--;
     }
 
     getNextTopChunk() {
@@ -213,6 +253,10 @@ class MonthChunkProvider {
         return nextTopChunk[1];
     }
 
+    releaseTopChunk() {
+        this.liveChunksBeginIndex++;
+    }
+
     hasNextTopChunk() {
         return this.liveChunksBeginIndex > 0;
     }
@@ -222,30 +266,8 @@ class MonthChunkProvider {
     }
 }
 
-var wheel = new PickerWheel(new MonthChunkProvider());
 var container = document.getElementById('container');
-container.appendChild(wheel.getElement());
+var wheel = new PickerWheel(new MonthChunkProvider(), container);
 
-// TODO - we're adding chunks after the wheel is added to the DOM so we have a valid
-// scrollTop and can center the wheel in addTopChunk
-// Need to add some sort of init process where we add necessary top + bottom chunks +
-// make sure we're centered
-wheel.addBottomChunk();
-wheel.addTopChunk();
-wheel.updateExtendBounds();
-
-function addHead() {
-    wheel.addTopChunk();
-}
-function addTail() {
-    wheel.addBottomChunk();
-}
-function delHead() {
-    wheel.removeTopChunk();
-}
-function delTail() {
-    wheel.removeBottomChunk();
-}
-function getSelCell() {
-   window.alert(wheel.getSelectedCell());
-}
+var container = document.getElementById('container');
+var wheel2 = new PickerWheel(new MonthChunkProvider(), container, wheel);

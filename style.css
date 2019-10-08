@@ -17,13 +17,13 @@ body {
     display: none;
 }
 
-.chunk {
+.wheel-list {
     /* Remove default styling for ul */
     padding: 0;
     margin: 0;
 }
 
-.chunk > li {
+.wheel-list > li {
     display: flex;
     align-items: center;
     justify-content: center;

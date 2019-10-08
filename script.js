@@ -1,19 +1,24 @@
 class PickerWheel {
-    constructor(chunkProvider, container) {
+    constructor(listAdapter, container) {
         // Declare size of picker 'cells'
         this.cellSize = 40;
-        // Define these here so we know when to lazy load head / tail chunks
+        // Define these here so we know when to lazy load more list data
         this.paddingVert = 100;
         this.paddingHorz = 20;
 
         // 'inflate' wheel from template HTML
         var template = document.createElement('div');
-        template.innerHTML = '<div class="wheel"><div class="window"/></div>';
+        template.innerHTML = '<div class="wheel"><div class="window"/><div class="window-list"/></div>';
         this.wheelElement = template.firstChild;
+        this.wghee
 
         this.wheelElement.style.height = this.cellSize + "px";
         this.wheelElement.style.width = this.cellSize + "px";
         this.wheelElement.style.padding = this.paddingVert + "px " + this.paddingHorz + "px";
+
+        this.wheelUl = document.createElement('ul');
+        this.wheelUl.classList.add('wheel-list');
+        this.wheelElement.appendChild(this.wheelUl);
 
         // 'this' reference for use in onscroll
         var classRef = this;
@@ -26,44 +31,39 @@ class PickerWheel {
                 classRef.snapToNearestCell();
             }, 80);
 
-            // TODO - consider adding multiple chunks when chunks are e.g. 1-sized?
-            // TODO - consider performance here as well - only check every n ticks?
+            // TODO: consider performance here
+            // - only activate every n ticks?
+            // - the 'createNewElement' calls take a substantial amount of time
+            //   pre-create HTML elements in ListAdapter? or clone existing one?
+            // - fix magic '30's here
             if (classRef.isScrollAboveTopBound()
-                && classRef.chunkProvider.hasNextTopChunk()) {
-                classRef.addTopChunk();
-                classRef.removeBottomChunk();
+                && classRef.listAdapter.isMoreListUpwards()) {
+                classRef.removeBottomElements(30);
+                classRef.listAdapter.releaseBottommostData(30);
+
+                const newListData = classRef.listAdapter.requestMoreDataUpwards(30);
+                classRef.prependListToWheel(newListData);
+
                 classRef.updateExtendBounds();
-                classRef.updateChunkBounds();
-            }
-            else if (classRef.isScrollAboveChunkBound()) {
-                console.log('up tick!');
-                classRef.updateChunkBounds();
-            }
-            else if (classRef.isScrollBelowChunkBound()) {
-                console.log('down tick!');
-                classRef.updateChunkBounds();
             }
             else if (classRef.isScrollBelowBottomBound()
-                && classRef.chunkProvider.hasNextBottomChunk()) {
-                classRef.addBottomChunk();
-                classRef.removeTopChunk();
+                && classRef.listAdapter.isMoreListDownwards()) {
+                classRef.removeTopElements(30);
+                classRef.listAdapter.releaseTopmostData(30);
+
+                const newListData = classRef.listAdapter.requestMoreDataDownwards(30);
+                classRef.appendListToWheel(newListData);
+
                 classRef.updateExtendBounds();
-                classRef.updateChunkBounds();
             }
         };
 
-        this.chunkProvider = chunkProvider;
-        this.chunkElements = [];
+        this.listAdapter = listAdapter;
 
         container.appendChild(this.wheelElement);
-
-        // Add initial chunk
-        this.addBottomChunk();
-        this.addBottomChunk();
-        this.addTopChunk();
+        this.appendListToWheel(listAdapter.requestMoreDataDownwards(80));
 
         this.updateExtendBounds();
-        this.updateChunkBounds();
     }
 
     isScrollAboveTopBound() {
@@ -82,88 +82,53 @@ class PickerWheel {
         this.extendBottomBound = wheelHeightLessPadding - this.paddingVert * 2;
     }
 
-    isScrollAboveChunkBound() {
-        return this.wheelElement.scrollTop <= this.chunkTopBound;
-    }
+    prependListToWheel(listData) {
+        var headElement = this.wheelUl.childNodes[0];
 
-    isScrollBelowChunkBound() {
-        return this.wheelElement.scrollTop >= this.chunkBottomBound;
-    }
-
-    updateChunkBounds() {
-        const selectedCellTuple = this.getSelectedCell();
-        const selectedChunkIndex = selectedCellTuple[0];
-
-        var wheelHeightBeforeMiddleChunk = 0;
-
-        for (let i = 0; i < selectedChunkIndex; i++) {
-            wheelHeightBeforeMiddleChunk += this.chunkElements[i].scrollHeight;
-        }
-
-        this.chunkTopBound = wheelHeightBeforeMiddleChunk - this.cellSize;
-        this.chunkBottomBound = wheelHeightBeforeMiddleChunk + this.chunkElements[selectedChunkIndex].scrollHeight;
-    }
-
-    addTopChunk() {
-        const newChunkData = this.chunkProvider.getNextTopChunk();
-
-        if (newChunkData == null) {
-            return;
-        }
-
-        const newChunkElement = this.createUlElement(newChunkData);
-
-        const topChunkElement = this.chunkElements[0];
-        this.wheelElement.insertBefore(newChunkElement, topChunkElement);
-
-        this.chunkElements.unshift(newChunkElement);
-
-        // Prepending new elements when scrollTop's at 0 automatically scrolls to
-        // container top for some reason, to maintain scrollTop == 0?
-        // Account for this by scrolling back down newly added chunk.
-        if (this.wheelElement.scrollTop == 0) {
-            this.wheelElement.scrollTop = newChunkData.length * this.cellSize;
+        for (let i = listData.length - 1; i >= 0; i--) {
+            const newElement = this.createListElement(listData[i]);
+            this.wheelUl.insertBefore(newElement, headElement);
+            headElement = newElement;
         }
     }
 
-    addBottomChunk() {
-        const newChunkData = this.chunkProvider.getNextBottomChunk();
+    appendListToWheel(listData) {
+        for (let i = 0; i < listData.length; i++) {
+            const newElement = this.createListElement(listData[i]);
+            this.wheelUl.appendChild(newElement);
+        }
+    }
 
-        if (newChunkData == null) {
-            return;
+    removeTopElements(numElementsToRemove) {
+        const numWheelElements = this.wheelUl.childNodes.length;
+        if (numElementsToRemove > numWheelElements) {
+            numElementsToRemove = numWheelElements;
         }
 
-        const newChunkElement = this.createUlElement(newChunkData);
-
-        this.wheelElement.appendChild(newChunkElement);
-        this.chunkElements.push(newChunkElement);
+        for (let i = 0; i < numElementsToRemove; i++) {
+            this.wheelUl.firstChild.remove();
+        }
     }
 
-    removeTopChunk() {
-        const topChunkToRemove = this.chunkElements.shift();
-        this.wheelElement.removeChild(topChunkToRemove);
-        this.chunkProvider.releaseTopChunk();
-    }
-
-    removeBottomChunk() {
-        const bottomChunkToRemove = this.chunkElements.pop();
-        this.wheelElement.removeChild(bottomChunkToRemove);
-        this.chunkProvider.releaseBottomChunk();
-    }
-
-    createUlElement(listData) {
-        var newChunk = document.createElement('ul');
-        newChunk.classList.add('chunk');
-
-        for (var i = 0; i < listData.length; i++) {
-            var li = document.createElement('li');
-            newChunk.appendChild(li);
-            li.innerHTML = listData[i];
-            li.style.height = this.cellSize + "px";
-            li.style.width = this.cellSize + "px";
+    removeBottomElements(numElementsToRemove) {
+        const numWheelElements = this.wheelUl.childNodes.length;
+        if (numElementsToRemove > numWheelElements) {
+            numElementsToRemove = numWheelElements;
         }
 
-        return newChunk;
+        for (let i = 0; i < numElementsToRemove; i++) {
+            this.wheelUl.lastChild.remove();
+        }
+    }
+
+    createListElement(elementText) {
+        var li = document.createElement('li');
+
+        li.innerHTML = elementText;
+        li.style.height = this.cellSize + "px";
+        li.style.width = this.cellSize + "px";
+
+        return li;
     }
 
     snapToNearestCell() {
@@ -178,96 +143,105 @@ class PickerWheel {
         });
     }
 
-    // Assumes all cells have equal height
     getSelectedCell() {
-        const nearestCellIndex = Math.round(this.wheelElement.scrollTop / this.cellSize);
-        var cumulativeCellCount = 0;
-
-        for (var i = 0; i < this.chunkElements.length; i++) {
-            const ithChunkCellCount = this.chunkElements[i].childNodes.length;
-
-            if (nearestCellIndex < cumulativeCellCount + ithChunkCellCount) {
-                break;
-            }
-
-            cumulativeCellCount += ithChunkCellCount;
-        }
-
-        const selectedCellIndexInChunk = nearestCellIndex - cumulativeCellCount;
-
-        // Return tuple of [chunk number, index]
-        return [i, selectedCellIndexInChunk];
+        // ...
     }
 }
 
-class MonthChunkProvider {
-    constructor() {
-        const monthsTuples = [
-            ['January', 31], ['February', 28], ['March', 31], ['April', 30],
-            ['May', 31], ['June', 30], ['July', 31], ['August', 31],
-            ['September', 30], ['October', 31], ['November', 30], ['December', 31]
-        ];
+class ListAdapter {
+    constructor(list) {
+        this.list = list;
 
-        this.monthChunks = [];
+        // Initialise 'active' list pointers
+        this.activeListBeginIndex = 0;
+        this.activeListEndIndex = 0;
+    }
 
-        // TODO use JSOs versus tuples here, will look cleaner
+    getActiveList() {
+        return this.list.slice(this.activeListBeginIndex, this.activeListEndIndex);
+    }
 
-        for (var i = 0; i < monthsTuples.length; i++) {
-            var daysOfMonth = [];
-            for (var day = 1; day <= monthsTuples[i][1]; day++) {
-                daysOfMonth.push(day);
-            }
-            this.monthChunks.push([monthsTuples[i][0], daysOfMonth]);
+    isMoreListUpwards() {
+        return this.activeListBeginIndex > 0;
+    }
+
+    isMoreListDownwards() {
+        return this.activeListEndIndex < this.list.length;
+    }
+
+    requestMoreDataUpwards(numRequestedElements) {
+        const oldBeginIndex = this.activeListBeginIndex;
+
+        if (this.activeListBeginIndex < numRequestedElements) {
+            this.activeListBeginIndex = 0;
+        }
+        else {
+            this.activeListBeginIndex -= numRequestedElements;
         }
 
-        this.liveChunksBeginIndex = 6;
-        this.liveChunksEndIndex = 6;
+        return this.list.slice(this.activeListBeginIndex, oldBeginIndex);
     }
 
-    getNextBottomChunk() {
-        if (!this.hasNextBottomChunk()) {
-            return null;
+    requestMoreDataDownwards(numRequestedElements) {
+        const oldEndIndex = this.activeListEndIndex;
+        const listLength = this.list.length;
+
+        if (this.activeListEndIndex + numRequestedElements > listLength) {
+            this.activeListEndIndex = listLength
+        }
+        else {
+            this.activeListEndIndex += numRequestedElements;
         }
 
-        // TODO index mutations quite side-effecty here, probs better to make separate method?
-        // 'claimNextChunk' vs 'getChunk'?
-        this.liveChunksEndIndex++;
-        const nextBottomChunk = this.monthChunks[this.liveChunksEndIndex];
-        return nextBottomChunk[1];
+        return this.list.slice(oldEndIndex, this.activeListEndIndex);
     }
 
-    releaseBottomChunk() {
-        // TODO: this interface feels a bit too manual
-        // but it's sort of required bc we need to maintain consistency between
-        // the chunk provider and the wheel chunks..
-        this.liveChunksEndIndex--;
-    }
+    releaseTopmostData(numElementsToRelease) {
+        const oldBeginIndex = this.activeListBeginIndex;
+        const listLength = this.list.length;
 
-    getNextTopChunk() {
-        if (!this.hasNextTopChunk()) {
-            return null;
+        if (this.activeListBeginIndex + numElementsToRelease > listLength) {
+            this.activeListBeginIndex = listLength;
+        }
+        else {
+            this.activeListBeginIndex += numElementsToRelease;
         }
 
-        this.liveChunksBeginIndex--;
-        const nextTopChunk = this.monthChunks[this.liveChunksBeginIndex];
-        return nextTopChunk[1];
+        // Return number of elements released
+        return this.activeListBeginIndex - oldBeginIndex;
     }
 
-    releaseTopChunk() {
-        this.liveChunksBeginIndex++;
-    }
+    releaseBottommostData(numElementsToRelease) {
+        const oldEndIndex = this.activeListEndIndex;
 
-    hasNextTopChunk() {
-        return this.liveChunksBeginIndex > 0;
-    }
+        if (this.activeListEndIndex - numElementsToRelease <= 0) {
+            this.activeListEndIndex = 0;
+        }
+        else {
+            this.activeListEndIndex -= numElementsToRelease;
+        }
 
-    hasNextBottomChunk() {
-        return this.liveChunksEndIndex < this.monthChunks.length - 1;
+        // Return number of elements released
+        return oldEndIndex - this.activeListEndIndex;
     }
 }
 
-var container = document.getElementById('container');
-var wheel = new PickerWheel(new MonthChunkProvider(), container);
+const monthsTuples = [
+    ['January', 31], ['February', 28], ['March', 31], ['April', 30],
+    ['May', 31], ['June', 30], ['July', 31], ['August', 31],
+    ['September', 30], ['October', 31], ['November', 30], ['December', 31]
+];
+
+var thousand = [];
+for (let i = 0; i < 1000; i++) {
+    thousand.push(i);
+}
+
+var hundred = [];
+for (let i = 0; i < 100; i++) {
+    hundred.push(i);
+}
 
 var container = document.getElementById('container');
-var wheel2 = new PickerWheel(new MonthChunkProvider(), container, wheel);
+var wheel = new PickerWheel(new ListAdapter(thousand), container);
+var wheel2 = new PickerWheel(new ListAdapter(hundred), container);

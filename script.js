@@ -1,18 +1,19 @@
 class PickerWheel {
-    constructor(listAdapter, container) {
-        // Declare size of picker 'cells'
-        this.cellSize = 40;
+    constructor(listAdapter, cellSizeParams) {
+        this.cellWidth = cellSizeParams.width || 40;
+        this.cellHeight = cellSizeParams.height || 40;
+
         // Define these here so we know when to lazy load more list data
         this.paddingVert = 100;
-        this.paddingHorz = 20;
+        this.paddingHorz = 10;
 
         // 'inflate' wheel from template HTML
         var template = document.createElement('div');
         template.innerHTML = '<div class="wheel"><div class="window"/></div>';
         this.wheelElement = template.firstChild;
 
-        this.wheelElement.style.height = this.cellSize + "px";
-        this.wheelElement.style.width = this.cellSize + "px";
+        this.wheelElement.style.height = this.cellHeight + "px";
+        this.wheelElement.style.width = this.cellWidth + "px";
         this.wheelElement.style.padding = this.paddingVert + "px " + this.paddingHorz + "px";
 
         this.wheelUl = document.createElement('ul');
@@ -59,7 +60,6 @@ class PickerWheel {
 
         this.listAdapter = listAdapter;
 
-        container.appendChild(this.wheelElement);
         this.appendListToWheel(listAdapter.requestMoreDataDownwards(80));
 
         this.updateExtendBounds();
@@ -124,15 +124,15 @@ class PickerWheel {
         var li = document.createElement('li');
 
         li.innerHTML = elementText;
-        li.style.height = this.cellSize + "px";
-        li.style.width = this.cellSize + "px";
+        li.style.height = this.cellHeight + "px";
+        li.style.width = this.cellWidth + "px";
 
         return li;
     }
 
     snapToNearestCell() {
-        const nearestCellIndex = Math.round(this.wheelElement.scrollTop / this.cellSize);
-        const nearestCellBase = nearestCellIndex * this.cellSize;
+        const nearestCellIndex = Math.round(this.wheelElement.scrollTop / this.cellHeight);
+        const nearestCellBase = nearestCellIndex * this.cellHeight;
 
         // TODO: find more supported way of animating scroll,
         // these 'scrollToOptions' objects fairly new
@@ -279,8 +279,11 @@ for (let i = 0; i < 100; i++) {
 
 var dateProvider = new DateProvider();
 
-var container = document.getElementById('container');
+var wheel = new PickerWheel(dateProvider.yearListAdapter, { width: 50, height: 40 });
+var wheel2 = new PickerWheel(dateProvider.monthListAdapter, { width: 90, height: 40 });
+var wheel3 = new PickerWheel(dateProvider.dayListAdapter, { width: 40, height: 40 });
 
-var wheel = new PickerWheel(dateProvider.yearListAdapter, container);
-var wheel2 = new PickerWheel(dateProvider.monthListAdapter, container);
-var wheel3 = new PickerWheel(dateProvider.dayListAdapter, container);
+var container = document.getElementById('container');
+container.appendChild(wheel.wheelElement);
+container.appendChild(wheel2.wheelElement);
+container.appendChild(wheel3.wheelElement);

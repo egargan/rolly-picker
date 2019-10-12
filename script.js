@@ -8,9 +8,8 @@ class PickerWheel {
 
         // 'inflate' wheel from template HTML
         var template = document.createElement('div');
-        template.innerHTML = '<div class="wheel"><div class="window"/><div class="window-list"/></div>';
+        template.innerHTML = '<div class="wheel"><div class="window"/></div>';
         this.wheelElement = template.firstChild;
-        this.wghee
 
         this.wheelElement.style.height = this.cellSize + "px";
         this.wheelElement.style.width = this.cellSize + "px";
@@ -226,11 +225,47 @@ class ListAdapter {
     }
 }
 
-const monthsTuples = [
-    ['January', 31], ['February', 28], ['March', 31], ['April', 30],
-    ['May', 31], ['June', 30], ['July', 31], ['August', 31],
-    ['September', 30], ['October', 31], ['November', 30], ['December', 31]
-];
+const monthDayMap = {
+    January: 31, February: 28, March: 31, April: 30,
+    May: 31, June: 30, July: 31, August: 31,
+    September: 30, October: 31, November: 30, December: 31
+};
+
+class DateProvider {
+    constructor() {
+
+        var yearsList = [];
+
+        for (let i = 1970; i < 2040; i++) {
+            yearsList.push(i);
+        }
+
+        var months = Object.keys(monthDayMap);
+        var days = [];
+
+        for (let i = 0; i < months.length; i++) {
+            const daysInMonth = monthDayMap[months[i]];
+            for (let i = 1; i <= daysInMonth; i++) {
+                days.push(i);
+            }
+
+        }
+
+        var monthsList = [];
+        var daysList = [];
+
+        for (let i = 0; i < yearsList.length; i++) {
+            monthsList = monthsList.concat(months);
+            daysList = daysList.concat(days);
+        }
+
+        this.yearListAdapter = new ListAdapter(yearsList);
+        this.monthListAdapter = new ListAdapter(monthsList);
+        this.dayListAdapter = new ListAdapter(daysList);
+    }
+
+}
+
 
 var thousand = [];
 for (let i = 0; i < 1000; i++) {
@@ -242,6 +277,10 @@ for (let i = 0; i < 100; i++) {
     hundred.push(i);
 }
 
+var dateProvider = new DateProvider();
+
 var container = document.getElementById('container');
-var wheel = new PickerWheel(new ListAdapter(thousand), container);
-var wheel2 = new PickerWheel(new ListAdapter(hundred), container);
+
+var wheel = new PickerWheel(dateProvider.yearListAdapter, container);
+var wheel2 = new PickerWheel(dateProvider.monthListAdapter, container);
+var wheel3 = new PickerWheel(dateProvider.dayListAdapter, container);

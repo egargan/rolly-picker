@@ -5,7 +5,6 @@ class PickerWheel {
 
         // Define these here so we know when to lazy load more list data
         this.paddingVert = 100;
-        this.paddingHorz = 10;
 
         // 'inflate' wheel from template HTML
         var template = document.createElement('div');
@@ -14,7 +13,8 @@ class PickerWheel {
 
         this.wheelElement.style.height = this.cellHeight + "px";
         this.wheelElement.style.width = this.cellWidth + "px";
-        this.wheelElement.style.padding = this.paddingVert + "px " + this.paddingHorz + "px";
+        this.wheelElement.style.paddingTop = this.paddingVert + "px";
+        this.wheelElement.style.paddingBottom = this.paddingVert + "px";
 
         this.wheelUl = document.createElement('ul');
         this.wheelUl.classList.add('wheel-list');

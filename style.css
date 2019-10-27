@@ -9,7 +9,7 @@ body {
 
 .wheel {
     display: inline-block;
-    margin: 5px;
+    margin: 10px;
     overflow: scroll;
 }
 

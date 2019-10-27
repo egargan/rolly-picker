@@ -1,10 +1,11 @@
-class PickerWheel {
-    constructor(listAdapter, cellSizeParams) {
+class LazyWheel {
+    constructor(listLoader, cellSizeParams, container) {
         this.cellWidth = cellSizeParams.width || 40;
         this.cellHeight = cellSizeParams.height || 40;
-
-        // Define these here so we know when to lazy load more list data
         this.paddingVert = 100;
+
+        // Number of cells lazy loaded when approaching current end of wheel
+        this.extensionSize = 20;
 
         // 'inflate' wheel from template HTML
         var template = document.createElement('div');
@@ -16,9 +17,9 @@ class PickerWheel {
         this.wheelElement.style.paddingTop = this.paddingVert + "px";
         this.wheelElement.style.paddingBottom = this.paddingVert + "px";
 
-        this.wheelUl = document.createElement('ul');
-        this.wheelUl.classList.add('wheel-list');
+        this.wheelUl = this.createWheelListElement();
         this.wheelElement.appendChild(this.wheelUl);
+        container.appendChild(this.wheelElement);
 
         // 'this' reference for use in onscroll
         var classRef = this;
@@ -28,40 +29,40 @@ class PickerWheel {
         this.wheelElement.onscroll = function() {
             window.clearTimeout(isScrolling);
             isScrolling = setTimeout(function() {
-                classRef.snapToNearestCell();
+                classRef.scrollToNearestCell();
             }, 80);
 
             // TODO: consider performance here
             // - only activate every n ticks?
             // - the 'createNewElement' calls take a substantial amount of time
-            //   pre-create HTML elements in ListAdapter? or clone existing one?
-            // - fix magic '30's here
+            //   pre-create HTML elements in ListLoader? or clone existing one?
             if (classRef.isScrollAboveTopBound()
-                && classRef.listAdapter.isMoreListUpwards()) {
-                classRef.removeBottomElements(30);
-                classRef.listAdapter.releaseBottommostData(30);
+                && classRef.listLoader.isMoreListUpwards()) {
 
-                const newListData = classRef.listAdapter.requestMoreDataUpwards(30);
+                classRef.removeBottomElements(classRef.extensionSize);
+                classRef.listLoader.releaseBottommostData(classRef.extensionSize);
+
+                const newListData = classRef.listLoader.getMoreDataUpwards(classRef.extensionSize);
                 classRef.prependListToWheel(newListData);
 
                 classRef.updateExtendBounds();
             }
             else if (classRef.isScrollBelowBottomBound()
-                && classRef.listAdapter.isMoreListDownwards()) {
-                classRef.removeTopElements(30);
-                classRef.listAdapter.releaseTopmostData(30);
+                && classRef.listLoader.isMoreListDownwards()) {
 
-                const newListData = classRef.listAdapter.requestMoreDataDownwards(30);
+                classRef.removeTopElements(classRef.extensionSize);
+                classRef.listLoader.releaseTopmostData(classRef.extensionSize);
+
+                const newListData = classRef.listLoader.getMoreDataDownwards(classRef.extensionSize);
                 classRef.appendListToWheel(newListData);
 
                 classRef.updateExtendBounds();
             }
         };
 
-        this.listAdapter = listAdapter;
-
-        this.appendListToWheel(listAdapter.requestMoreDataDownwards(80));
-
+        // Get initial list contents
+        this.listLoader = listLoader;
+        this.appendListToWheel(listLoader.getMoreDataDownwards(50));
         this.updateExtendBounds();
     }
 
@@ -74,11 +75,11 @@ class PickerWheel {
     }
 
     updateExtendBounds() {
-        // TODO magic * 2s here
-        this.extendTopBound = this.paddingVert * 2;
-
+        const boundMargin = this.paddingVert * 2;
         const wheelHeightLessPadding = this.wheelElement.scrollHeight - this.paddingVert * 2;
-        this.extendBottomBound = wheelHeightLessPadding - this.paddingVert * 2;
+
+        this.extendTopBound = boundMargin;
+        this.extendBottomBound = wheelHeightLessPadding - boundMargin;
     }
 
     prependListToWheel(listData) {
@@ -120,40 +121,73 @@ class PickerWheel {
         }
     }
 
-    createListElement(elementText) {
-        var li = document.createElement('li');
-
-        li.innerHTML = elementText;
-        li.style.height = this.cellHeight + "px";
-        li.style.width = this.cellWidth + "px";
-
-        return li;
-    }
-
-    snapToNearestCell() {
+    scrollToNearestCell() {
         const nearestCellIndex = Math.round(this.wheelElement.scrollTop / this.cellHeight);
         const nearestCellBase = nearestCellIndex * this.cellHeight;
 
-        // TODO: find more supported way of animating scroll,
-        // these 'scrollToOptions' objects fairly new
+        // TODO: find more supported way of scrolling, these 'scrollTo' jso args are fairly new
         this.wheelElement.scrollTo({
             top: nearestCellBase,
             behavior: 'smooth'
         });
     }
 
-    getSelectedCell() {
-        // ...
+    scrollToCell(cellIndex) {
+        const scrollTop = cellIndex * this.cellHeight;
+        this.wheelElement.scrollTo({
+            top: scrollTop,
+            behavior: 'smooth'
+        });
+    }
+
+    snapToCell(cellIndex) {
+        const scrollTop = cellIndex * this.cellHeight;
+        this.wheelElement.scrollTop = scrollTop;
+    }
+
+    getSelectedCellIndex() {
+       // ...
+    }
+
+    createWheelListElement() {
+        var wheelUl = document.createElement('ul');
+        wheelUl.classList.add('wheel-list');
+        return wheelUl;
+    }
+
+    createListElement(elementText) {
+        var li = document.createElement('li');
+
+        li.textContent = elementText;
+        li.style.height = this.cellHeight + "px";
+        li.style.width = this.cellWidth + "px";
+
+        return li;
+    }
+
+    redraw() {
+        // TODO: optimise this! takes a horrible amount of time
+        this.wheelUl.remove();
+        this.wheelUl = this.createWheelListElement();
+        this.wheelElement.appendChild(this.wheelUl);
+
+        const activeList = this.listLoader.getActiveList();
+        this.appendListToWheel(activeList);
     }
 }
 
-class ListAdapter {
+class ListLoader {
     constructor(list) {
         this.list = list;
 
         // Initialise 'active' list pointers
-        this.activeListBeginIndex = 0;
-        this.activeListEndIndex = 0;
+        this.setActiveListRange(0, 0);
+    }
+
+    setActiveListRange(beginIndex, endIndex) {
+        this.activeListBeginIndex = beginIndex;
+        this.activeListEndIndex = endIndex
+        // TODO: add 'notify'-ish callback system?
     }
 
     getActiveList() {
@@ -168,7 +202,7 @@ class ListAdapter {
         return this.activeListEndIndex < this.list.length;
     }
 
-    requestMoreDataUpwards(numRequestedElements) {
+    getMoreDataUpwards(numRequestedElements) {
         const oldBeginIndex = this.activeListBeginIndex;
 
         if (this.activeListBeginIndex < numRequestedElements) {
@@ -181,7 +215,7 @@ class ListAdapter {
         return this.list.slice(this.activeListBeginIndex, oldBeginIndex);
     }
 
-    requestMoreDataDownwards(numRequestedElements) {
+    getMoreDataDownwards(numRequestedElements) {
         const oldEndIndex = this.activeListEndIndex;
         const listLength = this.list.length;
 
@@ -225,15 +259,60 @@ class ListAdapter {
     }
 }
 
+class PickerWheel {
+    constructor(listData, dimens, container) {
+        this.listLoader = new ListLoader(listData);
+        this.wheelElement = new LazyWheel(this.listLoader, dimens, container);
+    }
+
+    snapToItem(index) {
+        const numOverflowCells = this.wheelElement.extensionSize;
+        var rangeBeginIndex = index - numOverflowCells;
+        var rangeEndIndex = index + numOverflowCells;
+
+        // The wheel's 'selected' cell - is centre of wheel unless near bounds
+        var selectedCellIndex = numOverflowCells;
+
+        if (rangeBeginIndex <= 0) {
+            rangeBeginIndex = 0;
+            selectedCellIndex = index;
+        }
+        if (rangeEndIndex > this.listLoader.list.length) {
+            rangeEndIndex = this.listLoader.list.length;
+            selectedCellIndex = selectedCellIndex;
+        }
+
+        // TODO: redrawing is expensive - check if given index is within / near current range
+        this.listLoader.setActiveListRange(rangeBeginIndex, rangeEndIndex);
+        this.wheelElement.redraw();
+        this.wheelElement.snapToCell(selectedCellIndex);
+    }
+
+    scrollToItem() {
+        // ...
+    }
+
+    getSelectedIndex() {
+        // ...
+    }
+
+    getSelectedValue() {
+        return this.listData[getSelectedIndex];
+    }
+
+    getElement() {
+        return this.wheelElement.wheelElement;
+    }
+}
+
 const monthDayMap = {
     January: 31, February: 28, March: 31, April: 30,
     May: 31, June: 30, July: 31, August: 31,
     September: 30, October: 31, November: 30, December: 31
 };
 
-class DateProvider {
-    constructor() {
-
+class DatePicker {
+    constructor(outerContainer) {
         var yearsList = [];
 
         for (let i = 1970; i < 2040; i++) {
@@ -248,7 +327,6 @@ class DateProvider {
             for (let i = 1; i <= daysInMonth; i++) {
                 days.push(i);
             }
-
         }
 
         var monthsList = [];
@@ -259,31 +337,28 @@ class DateProvider {
             daysList = daysList.concat(days);
         }
 
-        this.yearListAdapter = new ListAdapter(yearsList);
-        this.monthListAdapter = new ListAdapter(monthsList);
-        this.dayListAdapter = new ListAdapter(daysList);
+        // Wheels need to be in DOM for construction to function properly
+        this.container = document.createElement('div');
+        outerContainer.appendChild(this.container);
+
+        this.yearWheel = new PickerWheel(yearsList, { width: 50, height: 40 }, this.container);
+        this.monthWheel = new PickerWheel(monthsList, { width: 90, height: 40 }, this.container);
+        this.dayWheel = new PickerWheel(daysList, { width: 40, height: 40 }, this.container);
+
+        this.container.appendChild(this.yearWheel.getElement());
+        this.container.appendChild(this.monthWheel.getElement());
+        this.container.appendChild(this.dayWheel.getElement());
     }
 
+    getElement() {
+        return this.container;
+    }
 }
-
-
-var thousand = [];
-for (let i = 0; i < 1000; i++) {
-    thousand.push(i);
-}
-
-var hundred = [];
-for (let i = 0; i < 100; i++) {
-    hundred.push(i);
-}
-
-var dateProvider = new DateProvider();
-
-var wheel = new PickerWheel(dateProvider.yearListAdapter, { width: 50, height: 40 });
-var wheel2 = new PickerWheel(dateProvider.monthListAdapter, { width: 90, height: 40 });
-var wheel3 = new PickerWheel(dateProvider.dayListAdapter, { width: 40, height: 40 });
 
 var container = document.getElementById('container');
-container.appendChild(wheel.wheelElement);
-container.appendChild(wheel2.wheelElement);
-container.appendChild(wheel3.wheelElement);
+var picker = new DatePicker(container);
+
+function butt() {
+    var int = document.getElementById('tb').value;
+    picker.dayWheel.snapToItem(int);
+}

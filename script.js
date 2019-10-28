@@ -17,8 +17,13 @@ class LazyWheel {
         this.wheelElement.style.paddingTop = this.paddingVert + "px";
         this.wheelElement.style.paddingBottom = this.paddingVert + "px";
 
+        this.liTemplate = document.createElement('li');
+        this.liTemplate.style.height = this.cellHeight + "px";
+        this.liTemplate.style.width = this.cellWidth + "px";
+
         this.wheelUl = this.createWheelListElement();
         this.wheelElement.appendChild(this.wheelUl);
+
         container.appendChild(this.wheelElement);
 
         // 'this' reference for use in onscroll
@@ -34,8 +39,6 @@ class LazyWheel {
 
             // TODO: consider performance here
             // - only activate every n ticks?
-            // - the 'createNewElement' calls take a substantial amount of time
-            //   pre-create HTML elements in ListLoader? or clone existing one?
             if (classRef.isScrollAboveTopBound()
                 && classRef.listLoader.isMoreListUpwards()) {
 
@@ -156,18 +159,14 @@ class LazyWheel {
     }
 
     createListElement(elementText) {
-        var li = document.createElement('li');
-
-        li.textContent = elementText;
-        li.style.height = this.cellHeight + "px";
-        li.style.width = this.cellWidth + "px";
-
-        return li;
+        var newLi = this.liTemplate.cloneNode(false);
+        newLi.textContent = elementText;
+        return newLi;
     }
 
     redraw() {
-        // TODO: optimise this! takes a horrible amount of time
         this.wheelUl.remove();
+
         this.wheelUl = this.createWheelListElement();
         this.wheelElement.appendChild(this.wheelUl);
 
@@ -282,7 +281,6 @@ class PickerWheel {
             selectedCellIndex = selectedCellIndex;
         }
 
-        // TODO: redrawing is expensive - check if given index is within / near current range
         this.listLoader.setActiveListRange(rangeBeginIndex, rangeEndIndex);
         this.wheelElement.redraw();
         this.wheelElement.snapToCell(selectedCellIndex);
@@ -359,6 +357,6 @@ var container = document.getElementById('container');
 var picker = new DatePicker(container);
 
 function butt() {
-    var int = document.getElementById('tb').value;
+    var int = parseInt(document.getElementById('tb').value, 10);
     picker.dayWheel.snapToItem(int);
 }

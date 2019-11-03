@@ -34,7 +34,7 @@ class LazyWheel {
         this.wheelElement.onscroll = function() {
             window.clearTimeout(isScrolling);
             isScrolling = setTimeout(function() {
-                classRef.scrollToNearestCell();
+                classRef.snapToNearestCell();
             }, 80);
 
             // TODO: consider performance here
@@ -124,7 +124,7 @@ class LazyWheel {
         }
     }
 
-    scrollToNearestCell() {
+    snapToNearestCell() {
         const nearestCellIndex = Math.round(this.wheelElement.scrollTop / this.cellHeight);
         const nearestCellBase = nearestCellIndex * this.cellHeight;
 
@@ -143,13 +143,18 @@ class LazyWheel {
         });
     }
 
-    snapToCell(cellIndex) {
+    setSelectedCell(cellIndex) {
         const scrollTop = cellIndex * this.cellHeight;
         this.wheelElement.scrollTop = scrollTop;
     }
 
     getSelectedCellIndex() {
-       // ...
+        const nearestCellIndex = Math.round(this.wheelElement.scrollTop / this.cellHeight);
+        return nearestCellIndex;
+    }
+
+    getCellCount() {
+        return this.wheelUl.childNodes.length;
     }
 
     createWheelListElement() {
@@ -172,6 +177,8 @@ class LazyWheel {
 
         const activeList = this.listLoader.getActiveList();
         this.appendListToWheel(activeList);
+
+        this.updateExtendBounds();
     }
 }
 
@@ -288,6 +295,20 @@ class PickerWheel {
 
     scrollToItem() {
         // ...
+    }
+
+    tickUp() {
+        const cellIndex = this.wheelElement.getSelectedCellIndex();
+        if (cellIndex > 0) {
+            this.wheelElement.scrollToCell(cellIndex - 1);
+        }
+    }
+
+    tickDown() {
+        const cellIndex = this.wheelElement.getSelectedCellIndex();
+        if (cellIndex < this.wheelElement.getCellCount() - 1) {
+            this.wheelElement.scrollToCell(cellIndex + 1);
+        }
     }
 
     getSelectedIndex() {

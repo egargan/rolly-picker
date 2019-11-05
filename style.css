@@ -11,6 +11,9 @@ body {
     display: inline-block;
     margin: 10px;
     overflow: scroll;
+
+    /* Hide scrollbar on firefox  */
+    scrollbar-width: none;
 }
 
 .wheel::-webkit-scrollbar {

@@ -37,6 +37,7 @@ class LazyWheel {
             const selectedCellIndex = classRef.getSelectedCellIndex();
 
             // TODO: set scrollTop listeners for these instead with associated callbacks, similar to bounds system
+            //       this would also address issue where we skip cells in a single scroll tick!
 
             if (selectedCellIndex != classRef.currentSelectedCellIndex &&
                 classRef.cellEvents[selectedCellIndex] != null) {
@@ -388,7 +389,81 @@ class PickerWheel {
     }
 }
 
-const monthDayMap = {
+class PickerHierarchy {
+    constructor(map, container) {
+        // 2D array where each element is the list of cells to be given to the Nth pickerwheel
+        this.pickerCellArray = [];
+        this.pickerWheels = [];
+
+        this.initialiseCellArray(map, 0, this.pickerCellArray);
+        this.populatePickerCellArrays(map, 0, this.pickerCellArray);
+
+        // TODO: dimens as argument? how would that work?
+        for (let i = 0; i < this.pickerCellArray.length; i++) {
+            const cellsList = this.pickerCellArray[i];
+            const pickerWheel = new PickerWheel(cellsList, { width: 110, height: 40 }, container);
+
+            this.pickerWheels.push(pickerWheel);
+        }
+    }
+
+    populatePickerCellArrays(node, depth, pickerCellArray) {
+        const classRef = this;
+
+        const tickLeftWheelUpListener = new CellEvent(
+            function() { classRef.pickerWheels[depth - 1].tickUp(); },
+            CellEventDirection.UP
+        );
+
+        const tickLeftWheelDownListener = new CellEvent(
+            function() { classRef.pickerWheels[depth - 1].tickDown(); },
+            CellEventDirection.DOWN
+        );
+
+        var mapIter = node.entries();
+        var iterValue = mapIter.next();
+
+        var isFirstIteration = true;
+
+        while (!iterValue.done) {
+            const nextIterValue = mapIter.next();
+            var cellEvent = null;
+
+            if (isFirstIteration) {
+                cellEvent = tickLeftWheelDownListener;
+                isFirstIteration = false;
+            }
+            else if (nextIterValue.done) {
+                // If next iteration is our last
+                cellEvent = tickLeftWheelUpListener;
+            }
+
+            pickerCellArray[depth].push(new ListCell(iterValue.value[0], cellEvent));
+
+            if (!(iterValue.value[1] == null)) {
+                // If map entry has value, we expect it to be another map, so recurse
+                this.populatePickerCellArrays(iterValue.value[1], depth + 1, pickerCellArray);
+            }
+
+            iterValue = nextIterValue;
+        }
+    }
+
+    initialiseCellArray(node, depth, pickerCellArray) {
+        pickerCellArray.push(new Array());
+
+        const firstChild = node.values().next().value;
+
+        if (firstChild == null) {
+            return depth;
+        }
+        else {
+            return this.initialiseCellArray(firstChild, depth + 1, pickerCellArray);
+        }
+    }
+}
+
+const daysInMonths = {
     January: 31, February: 28, March: 31, April: 30,
     May: 31, June: 30, July: 31, August: 31,
     September: 30, October: 31, November: 30, December: 31
@@ -396,52 +471,33 @@ const monthDayMap = {
 
 class DatePicker {
     constructor(outerContainer) {
-        var yearsList = [];
+        const datesMap = this.constructDateMap();
+        this.pickerHierarchy = new PickerHierarchy(datesMap, outerContainer);
+    }
 
-        const dayTick = new CellEvent(function() { console.log('day tick') });
-        const monthTick = new CellEvent(function() { console.log('month tick') });
-        const yearTick = new CellEvent(function() { console.log('year tick') });
+    constructDateMap() {
+        var monthsDaysMap = new Map();
+        const monthNames = Object.keys(daysInMonths)
 
-        for (let i = 1970; i < 2040; i++) {
-            const yearCell = new ListCell(i, yearTick);
-            yearsList.push(yearCell);
-        }
+        for (let i = 0; i < monthNames.length; i++) {
+            const daysInMonth = daysInMonths[monthNames[i]];
+            const daysMap = new Map();
 
-        var months = Object.keys(monthDayMap);
-
-        var monthCells = [];
-        var dayCells = []
-
-        for (let i = 0; i < months.length; i++) {
-            monthCells.push(new ListCell(months[i], monthTick));
-        }
-
-        for (let i = 0; i < months.length; i++) {
-            const daysInMonth = monthDayMap[months[i]];
-            for (let i = 1; i <= daysInMonth; i++) {
-                dayCells.push(new ListCell(i, dayTick));
+            for (let day = 1; day <= daysInMonth; day++) {
+                daysMap.set(day, null);
             }
+
+            monthsDaysMap.set(monthNames[i], daysMap);
         }
 
-        var monthsList = [];
-        var daysList = [];
+        var yearsMonthsDaysMap = new Map();
 
-        for (let i = 0; i < yearsList.length; i++) {
-            monthsList = monthsList.concat(monthCells);
-            daysList = daysList.concat(dayCells);
+        // TODO: use params for start and end years
+        for (let i = 1970; i < 2040; i++) {
+            yearsMonthsDaysMap.set(i, monthsDaysMap);
         }
 
-        // Wheels need to be in DOM for construction to function properly
-        this.container = document.createElement('div');
-        outerContainer.appendChild(this.container);
-
-        this.yearWheel = new PickerWheel(yearsList, { width: 50, height: 40 }, this.container);
-        this.monthWheel = new PickerWheel(monthsList, { width: 110, height: 40 }, this.container);
-        this.dayWheel = new PickerWheel(daysList, { width: 40, height: 40 }, this.container);
-
-        this.container.appendChild(this.yearWheel.getElement());
-        this.container.appendChild(this.monthWheel.getElement());
-        this.container.appendChild(this.dayWheel.getElement());
+        return yearsMonthsDaysMap;
     }
 
     getElement() {
@@ -450,4 +506,4 @@ class DatePicker {
 }
 
 var container = document.getElementById('container');
-var picker = new DatePicker(container);
+var datepicker = new DatePicker(container);

@@ -14,6 +14,8 @@ body {
 
     /* Hide scrollbar on firefox  */
     scrollbar-width: none;
+
+    scroll-snap-type: y;
 }
 
 .wheel::-webkit-scrollbar {
@@ -31,6 +33,8 @@ body {
     align-items: center;
     justify-content: center;
     font-size: 1.2em;
+
+    scroll-snap-align: center;
 }
 
 .wheel .window {

@@ -59,11 +59,6 @@ class LazyWheel {
 
             classRef.currentSelectedCellIndex = classRef.getSelectedCellIndex();
 
-            window.clearTimeout(isScrolling);
-            isScrolling = setTimeout(function() {
-                classRef.scrollToCell(classRef.currentSelectedCellIndex);
-            }, 80);
-
             // TODO: consider performance here
             // - only activate every n ticks?
             if (classRef.isScrollAboveTopBound()
